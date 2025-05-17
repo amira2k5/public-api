@@ -1,0 +1,64 @@
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+mongoose.connect('mongodb://localhost:27017/travelposts');
+
+const userSchema = new mongoose.Schema({
+  username: String,
+});
+
+const replySchema = new mongoose.Schema({
+  user: String,
+  text: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const postSchema = new mongoose.Schema({
+  user: String,
+  destination: String,
+  time: String,
+  views: [String], // list of usernames who viewed
+  replies: [replySchema],
+});
+
+const Post = mongoose.model('Post', postSchema);
+
+// Create a post
+app.post('/posts', async (req, res) => {
+  const post = new Post(req.body);
+  await post.save();
+  res.send(post);
+});
+
+// Get all posts
+app.get('/posts', async (req, res) => {
+  const posts = await Post.find();
+  res.send(posts);
+});
+
+// View a post (and log viewer)
+app.post('/posts/:id/view', async (req, res) => {
+  const { username } = req.body;
+  const post = await Post.findById(req.params.id);
+  if (!post.views.includes(username)) {
+    post.views.push(username);
+    await post.save();
+  }
+  res.send(post);
+});
+
+// Reply to a post
+app.post('/posts/:id/reply', async (req, res) => {
+  const { user, text } = req.body;
+  const post = await Post.findById(req.params.id);
+  post.replies.push({ user, text });
+  await post.save();
+  res.send(post);
+});
+
+app.listen(3000, () => console.log('Server running on http://localhost:3000'));
